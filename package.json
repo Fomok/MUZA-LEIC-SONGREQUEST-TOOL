@@ -1,0 +1,58 @@
+{
+  "name": "twitch-song-bot",
+  "version": "1.0.0",
+  "description": "Plays YouTube song requests from your Twitch chat in a Discord voice channel or right on your PC",
+  "main": "electron/main.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "app": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "engines": {
+    "node": ">=18.17"
+  },
+  "dependencies": {
+    "@discordjs/voice": "^0.19.0",
+    "@snazzah/davey": "^0.1.7",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "ffmpeg-static": "^5.2.0",
+    "opusscript": "^0.1.1",
+    "tmi.js": "^1.8.5",
+    "youtube-dl-exec": "^3.0.10"
+  },
+  "optionalDependencies": {
+    "@discordjs/opus": "^0.10.0"
+  },
+  "devDependencies": {
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "allowScripts": {
+    "ffmpeg-static": true,
+    "youtube-dl-exec": true,
+    "@discordjs/opus": true,
+    "electron": true,
+    "electron-builder": true,
+    "app-builder-bin": true
+  },
+  "build": {
+    "appId": "com.fomok.songbot",
+    "productName": "Song Bot",
+    "asar": false,
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "target": ["nsis", "portable"],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

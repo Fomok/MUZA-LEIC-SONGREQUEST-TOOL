@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Song Bot</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e2229; --border: #2a2f3a;
+    --text: #e6e9ef; --muted: #8b93a3; --accent: #7c5cff; --accent2: #9d86ff;
+    --green: #3ecf8e; --red: #ff5c5c; --yellow: #f5c451;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 "Segoe UI", system-ui, sans-serif;
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 1150px; margin: 0 auto; }
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 370px; gap: 0 16px; align-items: start; }
+  @media (max-width: 920px) { .layout { grid-template-columns: 1fr; } }
+  .thumb { width: 64px; height: 36px; object-fit: cover; border-radius: 4px; flex: none; background: var(--panel2); }
+  .np-thumb { width: 106px; height: 60px; object-fit: cover; border-radius: 8px; flex: none; background: var(--panel2); }
+  .mode-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .mode-btn {
+    flex: 1; padding: 14px 10px; font-size: 15.5px; font-weight: 600;
+    background: var(--panel2); border: none; border-radius: 0; color: var(--muted);
+  }
+  .mode-btn.active { background: var(--accent); color: #fff; }
+  .mode-btn:not(.active):hover { color: var(--text); }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h1 span { color: var(--accent2); }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px; margin-bottom: 14px;
+  }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--panel2); border: 1px solid var(--border);
+    border-radius: 99px; padding: 4px 12px; font-size: 12.5px; color: var(--muted);
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+  .dot.ok { background: var(--green); } .dot.bad { background: var(--red); } .dot.warn { background: var(--yellow); }
+  button {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover { background: var(--accent2); }
+  button.danger:hover { border-color: var(--red); color: var(--red); }
+  button.small { padding: 3px 10px; font-size: 12.5px; }
+  input, select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; font-size: 14px; width: 100%;
+  }
+  input:focus { outline: none; border-color: var(--accent); }
+  label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 4px; }
+  .np-title { font-size: 17px; font-weight: 600; margin: 2px 0; word-break: break-word; }
+  .np-meta { color: var(--muted); font-size: 13px; }
+  .queue-item {
+    display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .queue-item:last-child { border-bottom: none; }
+  .queue-num { color: var(--accent2); font-weight: 700; width: 26px; flex: none; text-align: right; }
+  .queue-info { flex: 1; min-width: 0; }
+  .queue-title { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .queue-by { color: var(--muted); font-size: 12px; }
+  .muted { color: var(--muted); }
+  .vol { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+  input[type=range] { accent-color: var(--accent); padding: 0; }
+  details summary { cursor: pointer; font-weight: 600; user-select: none; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
+  @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+  .logbox {
+    background: #0b0d10; border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px; margin-top: 10px; max-height: 240px; overflow-y: auto;
+    font: 12px/1.5 Consolas, monospace; color: #a8b2c3; white-space: pre-wrap; word-break: break-all;
+  }
+  .toast {
+    position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+    background: var(--panel2); border: 1px solid var(--accent); color: var(--text);
+    border-radius: 10px; padding: 10px 18px; font-size: 14px; opacity: 0;
+    transition: opacity .25s; pointer-events: none; max-width: 90vw;
+  }
+  .toast.show { opacity: 1; }
+  .err { color: var(--red); font-size: 13.5px; margin-top: 8px; }
+  a { color: var(--accent2); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎵 Song <span>Bot</span></h1>
+  <div class="sub">Twitch song requests → Discord voice</div>
+
+  <div class="layout">
+  <div class="col-main">
+
+  <!-- OUTPUT MODE -->
+  <div class="card">
+    <div class="mode-toggle">
+      <button id="mode-discord" class="mode-btn">🎧 Discord VC bot</button>
+      <button id="mode-browser" class="mode-btn">🌐 Browser player</button>
+    </div>
+    <div class="muted" id="mode-hint" style="font-size:12.5px; margin-top:8px;"></div>
+    <div class="row" id="mirror-row" style="display:none; margin-top:8px;">
+      <label style="margin:0; display:flex; align-items:center; gap:6px; font-size:13px;" title="Plays the same song through this tab's speakers at the same time as the Discord bot — mute whichever side you don't need.">
+        <input type="checkbox" id="mirror-audio" style="width:auto;"> 🔊 also play in this tab (mirror of the bot)
+      </label>
+    </div>
+    <div class="muted" style="font-size:12px; margin-top:8px;">OBS overlay (Browser Source, ~480×140): <a id="overlay-link" href="/overlay" target="_blank">/overlay</a></div>
+    <div class="row" id="bp-enable-row" style="display:none; margin-top:10px;">
+      <button id="bp-enable" class="primary" style="flex:1;">▶ Click to start audio in this tab</button>
+    </div>
+    <audio id="bp-audio" style="display:none;"></audio>
+  </div>
+
+  <!-- STATUS -->
+  <div class="card">
+    <div class="row" style="justify-content: space-between;">
+      <div class="row">
+        <span class="pill"><span class="dot" id="dot-bot"></span><span id="st-bot">…</span></span>
+        <span class="pill"><span class="dot" id="dot-discord"></span>Discord: <span id="st-discord">…</span></span>
+        <span class="pill"><span class="dot" id="dot-twitch"></span>Twitch: <span id="st-twitch">…</span></span>
+      </div>
+      <div class="row">
+        <button id="btn-restart" class="small">↻ Restart bot</button>
+        <button id="btn-quit" class="small danger">⏻ Quit app</button>
+      </div>
+    </div>
+    <div class="err" id="bot-error" style="display:none;"></div>
+  </div>
+
+  <!-- NOW PLAYING -->
+  <div class="card">
+    <div class="row" style="justify-content: space-between;">
+      <img id="np-thumb" class="np-thumb" alt="" style="display:none;">
+      <div style="flex:1; min-width:0;">
+        <div class="np-meta">NOW PLAYING <span id="np-src" style="color:var(--yellow);"></span></div>
+        <div class="np-title" id="np-title">Nothing playing</div>
+        <div class="np-meta" id="np-by"></div>
+      </div>
+      <div class="row">
+        <button id="btn-pause">⏸ Pause</button>
+        <button id="btn-skip">⏭ Skip</button>
+        <button id="btn-bl-current" class="danger" title="Blacklist this song and skip it">⛔</button>
+      </div>
+    </div>
+    <div class="vol">
+      <span class="muted" style="font-size:13px;">🔊 <span id="vol-label">–</span>%</span>
+      <input type="range" id="vol" min="1" max="150" value="60" style="flex:1;">
+      <label style="margin:0; display:flex; align-items:center; gap:6px; font-size:13px;">
+        <input type="checkbox" id="sr-enabled" style="width:auto;"> requests on
+      </label>
+    </div>
+  </div>
+
+  <!-- ADD SONG -->
+  <div class="card">
+    <div class="row">
+      <input id="add-input" placeholder="Add a song yourself — YouTube link or search…" style="flex:1;">
+      <button id="btn-add" class="primary">Add</button>
+    </div>
+  </div>
+
+  <!-- QUEUE -->
+  <div class="card">
+    <div class="row" style="justify-content: space-between; margin-bottom: 6px;">
+      <strong>Queue (<span id="q-count">0</span>)</strong>
+      <button id="btn-clear" class="small danger">Clear queue</button>
+    </div>
+    <div id="queue"><div class="muted" style="padding:8px 0;">Queue is empty — viewers can type <code>!sr &lt;song&gt;</code> in Twitch chat.</div></div>
+  </div>
+
+  </div><!-- /col-main -->
+  <div class="col-side">
+
+  <!-- AUTO PLAYLIST -->
+  <div class="card">
+    <div class="row" style="justify-content: space-between; margin-bottom: 6px;">
+      <strong>🎼 Auto playlist (<span id="pl-count">0</span>)</strong>
+      <label style="margin:0; display:flex; align-items:center; gap:6px; font-size:13px;" title="ON: an incoming request skips the auto-playlist song immediately. OFF: the auto song finishes first.">
+        <input type="checkbox" id="pl-interrupt" style="width:auto;"> requests interrupt instantly
+      </label>
+    </div>
+    <div class="muted" style="font-size:12.5px; margin-bottom:8px;">Plays random songs from this list whenever the request queue is empty.</div>
+    <div class="row" style="margin-bottom:8px;">
+      <input id="pl-input" placeholder="Add to auto playlist — YouTube link or search…" style="flex:1;">
+      <button id="btn-pl-add" class="primary">Add</button>
+    </div>
+    <div id="pl-list"><div class="muted" style="padding:4px 0;">Empty — the bot stays silent between requests.</div></div>
+  </div>
+
+  <!-- BLACKLIST -->
+  <div class="card">
+    <details>
+      <summary>⛔ Blacklist (<span id="bl-count">0</span>)</summary>
+      <div class="muted" style="font-size:12.5px; margin:8px 0;">Blacklisted songs can't be requested. Use the ⛔ buttons on songs to add here.</div>
+      <div id="bl-list"></div>
+    </details>
+  </div>
+
+  </div><!-- /col-side -->
+  </div><!-- /layout -->
+
+  <!-- SETTINGS -->
+  <div class="card">
+    <details id="settings-details">
+      <summary>⚙️ Settings</summary>
+      <div class="grid2">
+        <div>
+          <label>Discord bot token</label>
+          <input id="cfg-discordToken" type="password" placeholder="paste bot token">
+        </div>
+        <div>
+          <label>Discord voice channel ID</label>
+          <input id="cfg-voiceChannelId" placeholder="e.g. 1234567890123456789">
+        </div>
+        <div>
+          <label>Twitch channel (whose chat to watch)</label>
+          <input id="cfg-twitchChannel" placeholder="e.g. fomok">
+        </div>
+        <div></div>
+        <div>
+          <label>Twitch bot account name <span class="muted">(optional, for chat replies)</span></label>
+          <input id="cfg-twitchUsername" placeholder="e.g. fomok_bot">
+        </div>
+        <div>
+          <label>Twitch oauth token <span class="muted">(optional)</span></label>
+          <input id="cfg-twitchOauth" type="password" placeholder="oauth:…">
+        </div>
+        <div>
+          <label>Max song length (minutes, 0 = no limit)</label>
+          <input id="cfg-maxSongMinutes" type="number" min="0">
+        </div>
+        <div>
+          <label>Max queued songs per viewer (0 = no limit)</label>
+          <input id="cfg-maxRequestsPerUser" type="number" min="0">
+        </div>
+        <div>
+          <label>Max songs in the whole queue (0 = no limit)</label>
+          <input id="cfg-maxQueueSize" type="number" min="0">
+        </div>
+        <div>
+          <label>"Queue full" chat message <span class="muted">({max} = the limit)</span></label>
+          <input id="cfg-queueFullMessage" placeholder="the queue is full ({max} songs) — try again in a bit!">
+        </div>
+        <div>
+          <label>Command prefix</label>
+          <input id="cfg-prefix" maxlength="3">
+        </div>
+        <div>
+          <label>Startup volume (%)</label>
+          <input id="cfg-defaultVolume" type="number" min="1" max="200">
+        </div>
+        <div>
+          <label>Audio quality (kbps, 32–320)</label>
+          <input id="cfg-audioBitrate" type="number" min="32" max="320">
+        </div>
+      </div>
+      <div class="row" style="margin-top:14px; justify-content: space-between;">
+        <span class="muted" style="font-size:12.5px;">Saving restarts the bot with the new settings.</span>
+        <button id="btn-save" class="primary">💾 Save &amp; restart</button>
+      </div>
+    </details>
+  </div>
+
+  <!-- LOGS -->
+  <div class="card">
+    <details>
+      <summary>📜 Logs</summary>
+      <div class="logbox" id="logs"></div>
+    </details>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let state = null;
+let volDragging = false;
+let settingsDirty = false;
+
+function toast(msg, isErr) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.style.borderColor = isErr ? 'var(--red)' : 'var(--accent)';
+  t.classList.add('show');
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+async function api(path, body) {
+  const res = await fetch(path, {
+    method: body ? 'POST' : 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+function fmtDur(s) {
+  if (s == null) return '?:??';
+  return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+}
+
+function thumbUrl(id) {
+  return `https://i.ytimg.com/vi/${encodeURIComponent(id)}/mqdefault.jpg`;
+}
+function thumbImg(t) {
+  return t.id ? `<img class="thumb" src="${thumbUrl(t.id)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '';
+}
+
+function setDot(id, cls) {
+  const d = $(id);
+  d.className = 'dot' + (cls ? ' ' + cls : '');
+}
+
+function render(s) {
+  state = s;
+  // status
+  const stateNames = { running: 'Running', stopped: 'Stopped', starting: 'Starting…', error: 'Error' };
+  $('st-bot').textContent = stateNames[s.state] || s.state;
+  setDot('dot-bot', s.state === 'running' ? 'ok' : s.state === 'starting' ? 'warn' : 'bad');
+  $('st-discord').textContent = s.status.discord;
+  setDot('dot-discord', /in voice|logged in|browser/.test(s.status.discord) ? 'ok' : /connecting/.test(s.status.discord) ? 'warn' : 'bad');
+  $('st-twitch').textContent = s.status.twitch;
+  setDot('dot-twitch', /connected/.test(s.status.twitch) ? 'ok' : /waiting/.test(s.status.twitch) ? 'warn' : 'bad');
+  const errBox = $('bot-error');
+  if (s.state === 'error' && s.error) { errBox.style.display = ''; errBox.textContent = '⚠ ' + s.error; }
+  else errBox.style.display = 'none';
+
+  // now playing
+  const p = s.player;
+  $('np-title').textContent = p.current ? p.current.title : 'Nothing playing';
+  $('np-by').textContent = p.current
+    ? `requested by ${p.current.requestedBy} · ${fmtDur(p.current.durationSec)}` : '';
+  $('np-src').textContent = p.current && p.current.source === 'fallback' ? '· AUTO PLAYLIST' : '';
+  const npt = $('np-thumb');
+  if (p.current && p.current.id) {
+    npt.src = thumbUrl(p.current.id);
+    npt.style.display = '';
+  } else {
+    npt.style.display = 'none';
+  }
+  $('btn-pause').textContent = p.paused ? '▶ Resume' : '⏸ Pause';
+  if (!volDragging && p.volume != null) { $('vol').value = p.volume; $('vol-label').textContent = p.volume; }
+  $('sr-enabled').checked = p.enabled;
+
+  // queue
+  $('q-count').textContent = p.queue.length;
+  const q = $('queue');
+  if (p.queue.length === 0) {
+    q.innerHTML = '<div class="muted" style="padding:8px 0;">Queue is empty — viewers can type <code>!sr &lt;song&gt;</code> in Twitch chat.</div>';
+  } else {
+    q.innerHTML = p.queue.map((t, i) => `
+      <div class="queue-item">
+        <div class="queue-num">${i + 1}</div>
+        ${thumbImg(t)}
+        <div class="queue-info">
+          <div class="queue-title">${escapeHtml(t.title)} <span class="muted">· ${fmtDur(t.durationSec)}</span></div>
+          <div class="queue-by">requested by ${escapeHtml(t.requestedBy || '?')}</div>
+        </div>
+        <button class="small danger" title="Blacklist this song" onclick="blacklistQueue(${i})">⛔</button>
+        <button class="small danger" title="Remove from queue" onclick="removeSong(${i})">✕</button>
+      </div>`).join('');
+  }
+
+  // auto playlist
+  $('pl-count').textContent = s.playlist.length;
+  $('pl-interrupt').checked = s.interruptFallback;
+  const pl = $('pl-list');
+  if (s.playlist.length === 0) {
+    pl.innerHTML = '<div class="muted" style="padding:4px 0;">Empty — the bot stays silent between requests.</div>';
+  } else {
+    pl.innerHTML = s.playlist.map((t, i) => `
+      <div class="queue-item">
+        <div class="queue-num">${i + 1}</div>
+        ${thumbImg(t)}
+        <div class="queue-info">
+          <div class="queue-title">${escapeHtml(t.title)} <span class="muted">· ${fmtDur(t.durationSec)}</span></div>
+        </div>
+        <button class="small danger" title="Blacklist this song" onclick="blacklistPl(${i})">⛔</button>
+        <button class="small danger" title="Remove from playlist" onclick="removePl(${i})">✕</button>
+      </div>`).join('');
+  }
+
+  // blacklist
+  $('bl-count').textContent = s.blacklist.length;
+  const bl = $('bl-list');
+  bl.innerHTML = s.blacklist.length === 0
+    ? '<div class="muted" style="padding:4px 0;">Nothing blacklisted.</div>'
+    : s.blacklist.map((t, i) => `
+      <div class="queue-item">
+        <div class="queue-info"><div class="queue-title">${escapeHtml(t.title)}</div></div>
+        <button class="small" title="Allow this song again" onclick="unblacklist(${i})">↩ allow</button>
+      </div>`).join('');
+
+  // settings (don't stomp on user's typing)
+  if (!settingsDirty && !$('settings-details').open) fillSettings(s.config);
+
+  // output mode + browser audio
+  const mode = p.mode || s.config.outputMode || 'discord';
+  $('mode-discord').classList.toggle('active', mode === 'discord');
+  $('mode-browser').classList.toggle('active', mode === 'browser');
+  $('mode-hint').textContent =
+    mode === 'browser'
+      ? 'Songs play in THIS tab — keep it open. Discord is not used.'
+      : 'Songs play in the Discord voice channel.';
+  $('mirror-row').style.display = mode === 'discord' ? '' : 'none';
+  lastMode = mode;
+  syncBrowserAudio(mode, p);
+
+  // logs
+  const lb = $('logs');
+  const atBottom = lb.scrollTop + lb.clientHeight >= lb.scrollHeight - 20;
+  lb.textContent = (s.logs || []).join('\n');
+  if (atBottom) lb.scrollTop = lb.scrollHeight;
+}
+
+function escapeHtml(x) {
+  return String(x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+const cfgFields = ['discordToken','voiceChannelId','twitchChannel','twitchUsername','twitchOauth','maxSongMinutes','maxRequestsPerUser','maxQueueSize','queueFullMessage','prefix','defaultVolume','audioBitrate'];
+function fillSettings(cfg) {
+  for (const f of cfgFields) $('cfg-' + f).value = cfg[f] ?? '';
+}
+cfgFields.forEach((f) => $('cfg-' + f).addEventListener('input', () => (settingsDirty = true)));
+
+async function refresh() {
+  try {
+    render(await api('/api/state'));
+  } catch {
+    $('st-bot').textContent = 'App not reachable';
+    setDot('dot-bot', 'bad');
+  }
+}
+
+// controls
+$('btn-skip').onclick = () => api('/api/control', { action: 'skip' }).then(render).catch((e) => toast(e.message, true));
+$('btn-pause').onclick = () =>
+  api('/api/control', { action: state?.player.paused ? 'resume' : 'pause' }).then(render).catch((e) => toast(e.message, true));
+$('btn-clear').onclick = () => api('/api/control', { action: 'clear' }).then(render).catch((e) => toast(e.message, true));
+$('sr-enabled').onchange = (e) =>
+  api('/api/control', { action: 'enable', value: e.target.checked }).then(render).catch((err) => toast(err.message, true));
+window.removeSong = (i) => api('/api/control', { action: 'remove', value: i }).then(render).catch((e) => toast(e.message, true));
+window.blacklistQueue = (i) => api('/api/blacklist/add', { queueIndex: i }).then((s) => { render(s); toast('Blacklisted.'); }).catch((e) => toast(e.message, true));
+window.blacklistPl = (i) => api('/api/blacklist/add', { playlistIndex: i }).then((s) => { render(s); toast('Blacklisted.'); }).catch((e) => toast(e.message, true));
+window.removePl = (i) => api('/api/playlist/remove', { index: i }).then(render).catch((e) => toast(e.message, true));
+window.unblacklist = (i) => api('/api/blacklist/remove', { index: i }).then(render).catch((e) => toast(e.message, true));
+
+$('btn-bl-current').onclick = () =>
+  api('/api/blacklist/add', { current: true }).then((s) => { render(s); toast('Blacklisted & skipped.'); }).catch((e) => toast(e.message, true));
+
+$('pl-interrupt').onchange = (e) =>
+  api('/api/control', { action: 'interruptFallback', value: e.target.checked }).then(render).catch((err) => toast(err.message, true));
+
+$('btn-pl-add').onclick = addPlSong;
+$('pl-input').addEventListener('keydown', (e) => e.key === 'Enter' && addPlSong());
+async function addPlSong() {
+  const v = $('pl-input').value.trim();
+  if (!v) return;
+  $('btn-pl-add').disabled = true;
+  try {
+    const r = await api('/api/playlist/add', { query: v });
+    toast(`Added to auto playlist: ${r.title}`);
+    $('pl-input').value = '';
+    refresh();
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    $('btn-pl-add').disabled = false;
+  }
+}
+
+$('vol').addEventListener('input', () => { volDragging = true; $('vol-label').textContent = $('vol').value; });
+$('vol').addEventListener('change', () => {
+  api('/api/control', { action: 'volume', value: Number($('vol').value) })
+    .then(render).catch((e) => toast(e.message, true))
+    .finally(() => (volDragging = false));
+});
+
+$('btn-add').onclick = addSong;
+$('add-input').addEventListener('keydown', (e) => e.key === 'Enter' && addSong());
+async function addSong() {
+  const v = $('add-input').value.trim();
+  if (!v) return;
+  $('btn-add').disabled = true;
+  try {
+    const r = await api('/api/request', { query: v });
+    toast(`Added: ${r.title} (#${r.position})`);
+    $('add-input').value = '';
+    refresh();
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    $('btn-add').disabled = false;
+  }
+}
+
+$('btn-save').onclick = async () => {
+  const body = {};
+  for (const f of cfgFields) body[f] = $('cfg-' + f).value;
+  $('btn-save').disabled = true;
+  $('btn-save').textContent = 'Restarting…';
+  try {
+    render(await api('/api/config', body));
+    settingsDirty = false;
+    toast(state.state === 'running' ? 'Saved — bot is running ✔' : 'Saved.');
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    $('btn-save').disabled = false;
+    $('btn-save').textContent = '💾 Save & restart';
+  }
+};
+
+// ---- output mode + browser playback ----
+let audioBlocked = false;
+let lastMode = 'discord';
+const bpAudio = $('bp-audio');
+
+// mirror preference is per-browser
+try {
+  $('mirror-audio').checked = localStorage.getItem('sb-mirror') === '1';
+} catch {}
+$('mirror-audio').onchange = () => {
+  try {
+    localStorage.setItem('sb-mirror', $('mirror-audio').checked ? '1' : '0');
+  } catch {}
+  refresh();
+};
+
+async function setMode(m) {
+  try {
+    render(await api('/api/config', { outputMode: m }));
+    toast(m === 'browser' ? 'Browser player mode — audio plays in this tab.' : 'Discord VC mode.');
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+$('mode-discord').onclick = () => setMode('discord');
+$('mode-browser').onclick = () => setMode('browser');
+
+function stopMirrorAudio() {
+  if (bpAudio.dataset.id) {
+    bpAudio.pause();
+    bpAudio.removeAttribute('src');
+    bpAudio.dataset.id = '';
+  }
+  $('bp-enable-row').style.display = 'none';
+}
+
+function syncBrowserAudio(mode, p) {
+  const active = mode === 'browser' || (mode === 'discord' && $('mirror-audio').checked);
+  if (!active || !p.current) {
+    stopMirrorAudio();
+    return;
+  }
+  bpAudio.volume = Math.min(1, (p.volume ?? 60) / 100);
+
+  if (bpAudio.dataset.id !== p.current.id) {
+    bpAudio.dataset.id = p.current.id;
+    bpAudio.src = '/api/audio/' + encodeURIComponent(p.current.id);
+    if (mode === 'discord' && p.positionSec != null && p.positionSec > 2) {
+      // joined mid-song — jump to where the bot is
+      bpAudio.addEventListener(
+        'loadedmetadata',
+        () => {
+          try {
+            bpAudio.currentTime = p.positionSec + 0.5;
+          } catch {}
+        },
+        { once: true }
+      );
+    }
+    tryPlay();
+  } else if (p.paused && !bpAudio.paused) {
+    bpAudio.pause();
+  } else if (!p.paused && bpAudio.paused && !audioBlocked && bpAudio.dataset.id) {
+    tryPlay();
+  } else if (mode === 'discord' && !p.paused && p.positionSec != null && bpAudio.duration) {
+    // keep the mirror within ~3s of the bot
+    if (Math.abs(bpAudio.currentTime - p.positionSec) > 3) {
+      try {
+        bpAudio.currentTime = Math.min(p.positionSec + 0.3, bpAudio.duration - 0.5);
+      } catch {}
+    }
+  }
+}
+
+function tryPlay() {
+  bpAudio.play().then(() => {
+    audioBlocked = false;
+    $('bp-enable-row').style.display = 'none';
+  }).catch(() => {
+    audioBlocked = true;
+    $('bp-enable-row').style.display = '';
+  });
+}
+
+$('bp-enable').onclick = () => tryPlay();
+
+bpAudio.addEventListener('ended', async () => {
+  const id = bpAudio.dataset.id;
+  bpAudio.dataset.id = '';
+  if (lastMode !== 'browser') return; // mirror: the Discord bot decides when the song ends
+  try {
+    render(await api('/api/browser/ended', { id }));
+  } catch {}
+});
+bpAudio.addEventListener('error', () => {
+  if (bpAudio.dataset.id) toast('Audio playback error in browser.', true);
+});
+
+$('btn-restart').onclick = async () => {
+  $('btn-restart').disabled = true;
+  try { render(await api('/api/start', {})); toast('Bot restarted.'); }
+  catch (e) { toast(e.message, true); }
+  finally { $('btn-restart').disabled = false; }
+};
+
+$('btn-quit').onclick = async () => {
+  if (!confirm('Quit the Song Bot app? The queue is saved and comes back next start.')) return;
+  try { await api('/api/shutdown', {}); } catch {}
+  document.body.innerHTML = '<div style="text-align:center; margin-top:100px; color:#8b93a3; font:15px system-ui;">Song Bot has been shut down. You can close this tab.</div>';
+};
+
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>

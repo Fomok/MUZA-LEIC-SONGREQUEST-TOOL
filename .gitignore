@@ -1,0 +1,12 @@
+# dependencies & build output
+node_modules/
+dist/
+
+# personal data — never commit these (config.json holds your tokens!)
+config.json
+queue.json
+playlist.json
+blacklist.json
+bot.log
+cache/
+.env
