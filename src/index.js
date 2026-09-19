@@ -64,7 +64,9 @@ appReady.then(async () => {
         console.log(`[fix] repaired title: "${item.title}" -> "${t.title}"`);
         item.title = t.title;
         playlist.save();
-      } catch {}
+      } catch (err) {
+        console.error(`[fix] could not repair "${item.title}" yet (${err.message}) — will retry on next start.`);
+      }
     }
   }
 }).catch(() => {});

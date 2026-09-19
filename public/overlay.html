@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <title>Song Bot Overlay</title>
 <style>
-  /* Transparent page for an OBS Browser Source. Suggested source size: 480 x 140. */
+  /* Transparent page for an OBS Browser Source.
+     Renders at 2x by default — set the OBS source to 960 x 280.
+     ?scale=1..4 changes the render scale (multiply 480 x 140 accordingly). */
   html, body { margin: 0; padding: 0; background: transparent; overflow: hidden; }
   #card {
     display: flex; align-items: center; gap: 14px;
@@ -70,9 +72,14 @@ let basePos = null; // last known position from the server
 let baseAt = 0; // when we learned it
 let isPaused = false;
 
-if (new URLSearchParams(location.search).get('clean') === '1') {
+const params = new URLSearchParams(location.search);
+if (params.get('clean') === '1') {
   document.body.classList.add('clean');
 }
+// Render at 2x by default so OBS scales DOWN (sharp), not up (pixelated).
+// Set the OBS source to 960x280 (or 480x140 per 1x of ?scale=).
+const scale = Math.max(1, Math.min(4, parseFloat(params.get('scale')) || 2));
+document.body.style.zoom = scale;
 
 // advance the bar smoothly between polls
 setInterval(() => {
@@ -111,7 +118,7 @@ async function tick() {
       card.classList.remove('show');
       setTimeout(() => {
         document.getElementById('thumb').src =
-          'https://i.ytimg.com/vi/' + encodeURIComponent(s.current.id) + '/mqdefault.jpg';
+          'https://i.ytimg.com/vi/' + encodeURIComponent(s.current.id) + '/hqdefault.jpg';
         document.getElementById('title').textContent = s.current.title;
         document.getElementById('by').textContent =
           s.current.source === 'fallback' ? 'auto playlist' : 'requested by ' + (s.current.requestedBy || '?');

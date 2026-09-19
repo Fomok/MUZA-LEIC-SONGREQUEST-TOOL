@@ -21,12 +21,14 @@ export async function resolveTrack(text) {
   const match = text.match(YT_URL_RE);
   const target = match ? `https://www.youtube.com/watch?v=${match[1]}` : `ytsearch1:${text}`;
 
-  let out;
+  let info;
   try {
-    out = await youtubedl(
+    // JSON output escapes all non-ASCII characters (Ł style), so titles
+    // survive any Windows codepage intact — unlike plain text printing.
+    info = await youtubedl(
       target,
       {
-        print: '%(id)s\t%(title)s\t%(duration)s\t%(is_live)s',
+        dumpSingleJson: true,
         noPlaylist: true,
         skipDownload: true,
         quiet: true,
@@ -47,18 +49,22 @@ export async function resolveTrack(text) {
     throw new Error('could not find that song.');
   }
 
-  const line = String(out).trim().split('\n')[0];
-  if (!line) throw new Error('no results found.');
-
-  const [id, title, duration, isLive] = line.split('\t');
-  if (!id || id === 'NA') throw new Error('no results found.');
+  if (typeof info === 'string') {
+    try {
+      info = JSON.parse(info);
+    } catch {
+      throw new Error('could not find that song.');
+    }
+  }
+  if (info && Array.isArray(info.entries)) info = info.entries[0]; // search result wrapper
+  if (!info || !info.id) throw new Error('no results found.');
 
   return {
-    id,
-    url: `https://www.youtube.com/watch?v=${id}`,
-    title: title && title !== 'NA' ? title : 'Unknown title',
-    durationSec: duration && duration !== 'NA' ? Math.round(Number(duration)) : null,
-    isLive: isLive === 'True' || isLive === 'true',
+    id: info.id,
+    url: `https://www.youtube.com/watch?v=${info.id}`,
+    title: info.title || 'Unknown title',
+    durationSec: Number.isFinite(info.duration) ? Math.round(info.duration) : null,
+    isLive: Boolean(info.is_live),
   };
 }
 

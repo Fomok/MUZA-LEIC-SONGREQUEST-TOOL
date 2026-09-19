@@ -111,7 +111,11 @@
         <input type="checkbox" id="mirror-audio" style="width:auto;"> 🔊 also play in this tab (mirror of the bot)
       </label>
     </div>
-    <div class="muted" style="font-size:12px; margin-top:8px;">OBS overlay (Browser Source, ~480×140): <a id="overlay-link" href="/overlay" target="_blank">/overlay</a></div>
+    <div class="row" style="margin-top:8px; gap:6px; align-items:center;">
+      <span class="muted" style="font-size:12px;">OBS overlay (Browser Source, 960×280):</span>
+      <button class="small" id="copy-overlay">📋 Copy link</button>
+      <button class="small" id="copy-overlay-clean">📋 Copy transparent link</button>
+    </div>
     <div class="row" id="bp-enable-row" style="display:none; margin-top:10px;">
       <button id="bp-enable" class="primary" style="flex:1;">▶ Click to start audio in this tab</button>
     </div>
@@ -549,6 +553,22 @@ async function setMode(m) {
 }
 $('mode-discord').onclick = () => setMode('discord');
 $('mode-browser').onclick = () => setMode('browser');
+
+async function copyText(t) {
+  try {
+    await navigator.clipboard.writeText(t);
+  } catch {
+    const i = document.createElement('input');
+    i.value = t;
+    document.body.appendChild(i);
+    i.select();
+    document.execCommand('copy');
+    i.remove();
+  }
+  toast('Copied: ' + t);
+}
+$('copy-overlay').onclick = () => copyText(location.origin + '/overlay');
+$('copy-overlay-clean').onclick = () => copyText(location.origin + '/overlay?clean=1');
 
 function stopMirrorAudio() {
   if (bpAudio.dataset.id) {
