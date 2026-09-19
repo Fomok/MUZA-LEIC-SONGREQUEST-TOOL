@@ -23,9 +23,7 @@
     "tmi.js": "^1.8.5",
     "youtube-dl-exec": "^3.0.10"
   },
-  "optionalDependencies": {
-    "@discordjs/opus": "^0.10.0"
-  },
+  "author": "Fomok",
   "devDependencies": {
     "electron": "^35.0.0",
     "electron-builder": "^25.1.8"
@@ -33,7 +31,6 @@
   "allowScripts": {
     "ffmpeg-static": true,
     "youtube-dl-exec": true,
-    "@discordjs/opus": true,
     "electron": true,
     "electron-builder": true,
     "app-builder-bin": true
@@ -42,6 +39,7 @@
     "appId": "com.fomok.songbot",
     "productName": "Song Bot",
     "asar": false,
+    "npmRebuild": false,
     "directories": {
       "output": "dist"
     },
