@@ -35,6 +35,20 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #paused { color: #f5c451; font-weight: 700; }
+  #bar-track {
+    height: 4px; margin-top: 7px; border-radius: 2px; overflow: hidden;
+    background: rgba(255, 255, 255, 0.16);
+  }
+  #bar-fill {
+    height: 100%; width: 0%; border-radius: 2px;
+    background: linear-gradient(90deg, #7c5cff, #9d86ff);
+    transition: width .25s linear;
+  }
+  /* ?clean=1 — no card background: just thumbnail, text, progress bar */
+  body.clean #card { background: transparent; border-color: transparent; }
+  body.clean #title, body.clean #label { text-shadow: 0 1px 4px rgba(0,0,0,.85); }
+  body.clean #by { text-shadow: 0 1px 3px rgba(0,0,0,.85); }
+  body.clean #bar-track { background: rgba(0, 0, 0, 0.45); }
 </style>
 </head>
 <body>
@@ -44,12 +58,32 @@
       <div id="label">♪ NOW PLAYING <span id="paused"></span></div>
       <div id="title"></div>
       <div id="by"></div>
+      <div id="bar-track"><div id="bar-fill"></div></div>
     </div>
   </div>
 
 <script>
 const card = document.getElementById('card');
 let lastId = null;
+let durationSec = null;
+let basePos = null; // last known position from the server
+let baseAt = 0; // when we learned it
+let isPaused = false;
+
+if (new URLSearchParams(location.search).get('clean') === '1') {
+  document.body.classList.add('clean');
+}
+
+// advance the bar smoothly between polls
+setInterval(() => {
+  const fill = document.getElementById('bar-fill');
+  if (basePos == null || !durationSec) {
+    fill.style.width = '0%';
+    return;
+  }
+  const pos = isPaused ? basePos : basePos + (Date.now() - baseAt) / 1000;
+  fill.style.width = Math.min(100, (pos / durationSec) * 100).toFixed(2) + '%';
+}, 250);
 
 async function tick() {
   try {
@@ -58,9 +92,19 @@ async function tick() {
     if (!s.current) {
       card.classList.remove('show');
       lastId = null;
+      basePos = null;
       return;
     }
     document.getElementById('paused').textContent = s.paused ? '· PAUSED' : '';
+    isPaused = s.paused;
+    durationSec = s.current.durationSec || null;
+    if (s.positionSec != null) {
+      basePos = s.positionSec;
+      baseAt = Date.now();
+    } else if (s.current.id !== lastId) {
+      basePos = 0; // new song, position unknown yet — start from the beginning
+      baseAt = Date.now();
+    }
     if (s.current.id !== lastId) {
       lastId = s.current.id;
       // brief dip so the change animates

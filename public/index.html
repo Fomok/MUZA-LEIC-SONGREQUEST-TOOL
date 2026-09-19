@@ -103,7 +103,7 @@
   <div class="card">
     <div class="mode-toggle">
       <button id="mode-discord" class="mode-btn">🎧 Discord VC bot</button>
-      <button id="mode-browser" class="mode-btn">🌐 Browser player</button>
+      <button id="mode-browser" class="mode-btn">🖥 In App Player</button>
     </div>
     <div class="muted" id="mode-hint" style="font-size:12.5px; margin-top:8px;"></div>
     <div class="row" id="mirror-row" style="display:none; margin-top:8px;">
@@ -411,7 +411,7 @@ function render(s) {
   $('mode-browser').classList.toggle('active', mode === 'browser');
   $('mode-hint').textContent =
     mode === 'browser'
-      ? 'Songs play in THIS tab — keep it open. Discord is not used.'
+      ? 'Songs play right here in the app — keep this window open. Discord is not used.'
       : 'Songs play in the Discord voice channel.';
   $('mirror-row').style.display = mode === 'discord' ? '' : 'none';
   lastMode = mode;
@@ -525,6 +525,7 @@ $('btn-save').onclick = async () => {
 // ---- output mode + browser playback ----
 let audioBlocked = false;
 let lastMode = 'discord';
+let lastPosSent = 0;
 const bpAudio = $('bp-audio');
 
 // mirror preference is per-browser
@@ -541,7 +542,7 @@ $('mirror-audio').onchange = () => {
 async function setMode(m) {
   try {
     render(await api('/api/config', { outputMode: m }));
-    toast(m === 'browser' ? 'Browser player mode — audio plays in this tab.' : 'Discord VC mode.');
+    toast(m === 'browser' ? 'In App Player mode — audio plays right here.' : 'Discord VC mode.');
   } catch (e) {
     toast(e.message, true);
   }
@@ -593,6 +594,16 @@ function syncBrowserAudio(mode, p) {
         bpAudio.currentTime = Math.min(p.positionSec + 0.3, bpAudio.duration - 0.5);
       } catch {}
     }
+  }
+
+  // In-app mode: report playback position so the OBS overlay can draw its progress bar.
+  if (mode === 'browser' && bpAudio.dataset.id && !bpAudio.paused && Date.now() - lastPosSent > 2000) {
+    lastPosSent = Date.now();
+    fetch('/api/browser/position', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: bpAudio.dataset.id, positionSec: bpAudio.currentTime }),
+    }).catch(() => {});
   }
 }
 

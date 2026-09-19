@@ -3,7 +3,8 @@ import { initLogger } from './logger.js';
 import { loadConfig, isConfigured } from './config.js';
 import { Bot } from './bot.js';
 import { startServer } from './server.js';
-import { pruneCache } from './youtube.js';
+import { pruneCache, resolveTrack } from './youtube.js';
+import { playlist } from './store.js';
 
 initLogger();
 pruneCache();
@@ -52,6 +53,21 @@ export const appReady = (async () => {
   }
   return { port, bot };
 })();
+
+// One-time repair: re-fetch playlist titles that were mangled by the old
+// Windows codepage bug (they contain the � replacement character).
+appReady.then(async () => {
+  for (const item of playlist.items) {
+    if (item.title && item.title.includes('�')) {
+      try {
+        const t = await resolveTrack(item.url);
+        console.log(`[fix] repaired title: "${item.title}" -> "${t.title}"`);
+        item.title = t.title;
+        playlist.save();
+      } catch {}
+    }
+  }
+}).catch(() => {});
 
 async function shutdown() {
   await bot.stop(true).catch(() => {});

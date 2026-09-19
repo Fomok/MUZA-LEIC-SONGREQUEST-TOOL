@@ -13,6 +13,7 @@ export function startServer(bot, getConfig, setConfig) {
   const app = express();
   app.use(express.json());
   app.use(express.static(path.join(rootDir, 'public')));
+  app.get('/overlay', (req, res) => res.sendFile(path.join(rootDir, 'public', 'overlay.html')));
 
   const state = () => ({
     ...bot.snapshot(),
@@ -193,6 +194,11 @@ export function startServer(bot, getConfig, setConfig) {
   app.post('/api/browser/ended', (req, res) => {
     bot.player?.ended?.(String(req.body?.id || ''));
     res.json(state());
+  });
+
+  app.post('/api/browser/position', (req, res) => {
+    bot.player?.notePosition?.(String(req.body?.id || ''), Number(req.body?.positionSec));
+    res.json({ ok: true });
   });
 
   app.post('/api/shutdown', async (req, res) => {

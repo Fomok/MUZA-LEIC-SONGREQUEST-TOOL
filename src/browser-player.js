@@ -18,6 +18,7 @@ export class BrowserPlayer {
     this.enabled = true;
     this.destroyed = false;
     this._paused = false;
+    this._positionSec = null; // reported by the app window's audio element
     this._lastFallbackId = null;
     this._playToken = 0;
     this._downloading = false;
@@ -88,6 +89,7 @@ export class BrowserPlayer {
 
     this.currentFile = file;
     this._paused = false;
+    this._positionSec = 0;
     console.log(
       `[player] now playing in browser${track.source === 'fallback' ? ' (auto playlist)' : ''}: ${track.title} (${track.requestedBy})`
     );
@@ -106,8 +108,16 @@ export class BrowserPlayer {
     if (this.current && this.current.id === id) {
       this.current = null;
       this.currentFile = null;
+      this._positionSec = null;
       this.onChange?.();
       this.playNext();
+    }
+  }
+
+  /** Called by the dashboard to report the audio element's playback position. */
+  notePosition(id, sec) {
+    if (this.current && this.current.id === id && Number.isFinite(sec)) {
+      this._positionSec = Math.max(0, sec);
     }
   }
 
@@ -192,7 +202,7 @@ export class BrowserPlayer {
       enabled: this.enabled,
       paused: this._paused,
       interruptFallback: this.interruptFallback,
-      positionSec: null, // the dashboard tab owns playback position in this mode
+      positionSec: this.current ? this._positionSec : null, // reported by the app window
     };
   }
 }

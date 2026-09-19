@@ -6,6 +6,10 @@ import youtubedl from 'youtube-dl-exec';
 const cacheDir = path.join(dataDir, 'cache');
 fs.mkdirSync(cacheDir, { recursive: true });
 
+// Force yt-dlp (Python) to emit UTF-8 on Windows — otherwise titles with
+// Polish/accented characters arrive in the local codepage and turn into �.
+const UTF8_ENV = { env: { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' } };
+
 const YT_URL_RE =
   /(?:https?:\/\/)?(?:www\.|m\.|music\.)?(?:youtube\.com\/(?:watch\?[^ ]*v=|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/i;
 
@@ -19,14 +23,18 @@ export async function resolveTrack(text) {
 
   let out;
   try {
-    out = await youtubedl(target, {
-      print: '%(id)s\t%(title)s\t%(duration)s\t%(is_live)s',
-      noPlaylist: true,
-      skipDownload: true,
-      quiet: true,
-      noWarnings: true,
-      defaultSearch: 'ytsearch',
-    });
+    out = await youtubedl(
+      target,
+      {
+        print: '%(id)s\t%(title)s\t%(duration)s\t%(is_live)s',
+        noPlaylist: true,
+        skipDownload: true,
+        quiet: true,
+        noWarnings: true,
+        defaultSearch: 'ytsearch',
+      },
+      UTF8_ENV
+    );
   } catch (err) {
     const msg = String(err?.stderr || err?.message || err);
     if (/video unavailable|private video|removed/i.test(msg)) {
@@ -74,13 +82,17 @@ export function downloadTrack(track) {
 
   if (inflight.has(track.id)) return inflight.get(track.id);
 
-  const p = youtubedl(track.url, {
-    output: file,
-    format: 'bestaudio[acodec=opus]/bestaudio/best',
-    noPlaylist: true,
-    quiet: true,
-    noWarnings: true,
-  })
+  const p = youtubedl(
+    track.url,
+    {
+      output: file,
+      format: 'bestaudio[acodec=opus]/bestaudio/best',
+      noPlaylist: true,
+      quiet: true,
+      noWarnings: true,
+    },
+    UTF8_ENV
+  )
     .then(() => {
       if (!fs.existsSync(file) || fs.statSync(file).size === 0) {
         throw new Error('download produced no file');
