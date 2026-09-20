@@ -688,8 +688,10 @@ public partial class MainWindow : Window
         }
     }
 
-    private void CopyOverlay_Click(object sender, RoutedEventArgs e) => CopyText($"{_engine.BaseUrl}/overlay");
-    private void CopyOverlayClean_Click(object sender, RoutedEventArgs e) => CopyText($"{_engine.BaseUrl}/overlay?clean=1");
+    // A fresh v= value on every copy busts OBS's page cache, so a re-added source always gets the latest overlay.
+    private static string CacheBust() => DateTime.Now.ToString("yyMMddHHmm");
+    private void CopyOverlay_Click(object sender, RoutedEventArgs e) => CopyText($"{_engine.BaseUrl}/overlay?v={CacheBust()}");
+    private void CopyOverlayClean_Click(object sender, RoutedEventArgs e) => CopyText($"{_engine.BaseUrl}/overlay?clean=1&v={CacheBust()}");
 
     private void CopyText(string t)
     {

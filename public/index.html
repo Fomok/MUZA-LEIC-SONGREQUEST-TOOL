@@ -567,8 +567,9 @@ async function copyText(t) {
   }
   toast('Copied: ' + t);
 }
-$('copy-overlay').onclick = () => copyText(location.origin + '/overlay');
-$('copy-overlay-clean').onclick = () => copyText(location.origin + '/overlay?clean=1');
+const cacheBust = () => 'v=' + Date.now().toString(36); // fresh value busts OBS's page cache
+$('copy-overlay').onclick = () => copyText(location.origin + '/overlay?' + cacheBust());
+$('copy-overlay-clean').onclick = () => copyText(location.origin + '/overlay?clean=1&' + cacheBust());
 
 function stopMirrorAudio() {
   if (bpAudio.dataset.id) {
