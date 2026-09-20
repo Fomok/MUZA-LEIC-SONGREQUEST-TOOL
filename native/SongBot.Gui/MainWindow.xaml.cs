@@ -25,8 +25,10 @@ public partial class MainWindow : Window
     private DateTime _lastPosReport = DateTime.MinValue;
 
     // progress bar state
-    private readonly DispatcherTimer _progTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private readonly DispatcherTimer _progTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private bool _progDragging;
+    private DateTime _seekMuteUntil = DateTime.MinValue; // ignore stale engine positions right after a seek
+    private DateTime _lastSeekAt = DateTime.MinValue;
     private double _basePos;
     private DateTime _baseAt = DateTime.Now;
     private double _durSec;
@@ -191,6 +193,10 @@ public partial class MainWindow : Window
             {
                 _lastNpId = npId;
                 NpThumb.Source = npId == null ? null : Bmp($"https://i.ytimg.com/vi/{npId}/mqdefault.jpg");
+                // fresh song: reset the progress baseline
+                _basePos = 0;
+                _baseAt = DateTime.Now;
+                _seekMuteUntil = DateTime.MinValue;
             }
             var paused = p["paused"]?.GetValue<bool>() ?? false;
             _isPaused = paused;
@@ -217,7 +223,7 @@ public partial class MainWindow : Window
                 _basePos = _mirror.PositionSec;
                 _baseAt = DateTime.Now;
             }
-            else if (posFromState != null)
+            else if (posFromState != null && DateTime.Now > _seekMuteUntil)
             {
                 _basePos = posFromState.Value;
                 _baseAt = DateTime.Now;
@@ -345,18 +351,20 @@ public partial class MainWindow : Window
         TimeTotal.Text = FmtSec(_durSec);
     }
 
-    private void Prog_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e) => _progDragging = true;
-
-    private async void Prog_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    private void Prog_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        _progDragging = false;
-        await SeekTo(ProgSlider.Value);
+        // freeze the ticker for the whole press (click or drag) so it can't move the bar under the mouse
+        _progDragging = true;
     }
 
     private async void Prog_MouseUp(object sender, MouseButtonEventArgs e)
     {
+        var target = ProgSlider.Value;
+        _progDragging = false;
         if (_durSec <= 0) return;
-        await SeekTo(ProgSlider.Value);
+        if ((DateTime.Now - _lastSeekAt).TotalMilliseconds < 300) return; // debounce double events
+        _lastSeekAt = DateTime.Now;
+        await SeekTo(target);
     }
 
     private async Task SeekTo(double sec)
@@ -365,6 +373,7 @@ public partial class MainWindow : Window
         sec = Math.Clamp(sec, 0, Math.Max(0, _durSec - 2));
         _basePos = sec;
         _baseAt = DateTime.Now;
+        _seekMuteUntil = DateTime.Now.AddSeconds(3); // engine reports stale position briefly after a seek
         try
         {
             if (_mode == "browser")

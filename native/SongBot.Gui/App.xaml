@@ -99,6 +99,113 @@
                 <Setter Property="Foreground" Value="{StaticResource Accent}"/>
             </Style>
 
+            <!-- OBS-overlay-style horizontal seek bar: gradient fill, dark track, draggable dot -->
+            <Style x:Key="SeekSlider" TargetType="Slider">
+                <Setter Property="Height" Value="20"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Slider">
+                            <Grid VerticalAlignment="Center" Background="Transparent" MinHeight="20">
+                                <Track x:Name="PART_Track">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton IsTabStop="False" Command="Slider.DecreaseLarge" Focusable="False">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Grid Background="Transparent">
+                                                        <Border Height="6" CornerRadius="3,0,0,3" VerticalAlignment="Center">
+                                                            <Border.Background>
+                                                                <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+                                                                    <GradientStop Color="#7C5CFF" Offset="0"/>
+                                                                    <GradientStop Color="#9D86FF" Offset="1"/>
+                                                                </LinearGradientBrush>
+                                                            </Border.Background>
+                                                        </Border>
+                                                    </Grid>
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton IsTabStop="False" Command="Slider.IncreaseLarge" Focusable="False">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Grid Background="Transparent">
+                                                        <Border Height="6" CornerRadius="0,3,3,0" Background="#2A2F3A" VerticalAlignment="Center"/>
+                                                    </Grid>
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.IncreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Width="14" Height="14" Focusable="False">
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Ellipse Fill="#9D86FF" Stroke="White" StrokeThickness="1.5"/>
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- same look, vertical, for the volume bars -->
+            <Style x:Key="VolSliderV" TargetType="Slider">
+                <Setter Property="Orientation" Value="Vertical"/>
+                <Setter Property="Width" Value="22"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Slider">
+                            <Grid HorizontalAlignment="Center" Background="Transparent" MinWidth="22">
+                                <Track x:Name="PART_Track">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton IsTabStop="False" Command="Slider.DecreaseLarge" Focusable="False">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Grid Background="Transparent">
+                                                        <Border Width="6" CornerRadius="0,0,3,3" HorizontalAlignment="Center">
+                                                            <Border.Background>
+                                                                <LinearGradientBrush StartPoint="0,1" EndPoint="0,0">
+                                                                    <GradientStop Color="#7C5CFF" Offset="0"/>
+                                                                    <GradientStop Color="#9D86FF" Offset="1"/>
+                                                                </LinearGradientBrush>
+                                                            </Border.Background>
+                                                        </Border>
+                                                    </Grid>
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton IsTabStop="False" Command="Slider.IncreaseLarge" Focusable="False">
+                                            <RepeatButton.Template>
+                                                <ControlTemplate TargetType="RepeatButton">
+                                                    <Grid Background="Transparent">
+                                                        <Border Width="6" CornerRadius="3,3,0,0" Background="#2A2F3A" HorizontalAlignment="Center"/>
+                                                    </Grid>
+                                                </ControlTemplate>
+                                            </RepeatButton.Template>
+                                        </RepeatButton>
+                                    </Track.IncreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb Width="14" Height="14" Focusable="False">
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Ellipse Fill="#9D86FF" Stroke="White" StrokeThickness="1.5"/>
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <!-- dark tooltips (default style showed light-on-light = blank box) -->
             <Style TargetType="ToolTip">
                 <Setter Property="Background" Value="{StaticResource Panel2}"/>

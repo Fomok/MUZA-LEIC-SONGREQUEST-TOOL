@@ -28,7 +28,15 @@ public class AudioMirror : IDisposable
 
     public AudioMirror(string baseUrl) => _baseUrl = baseUrl;
 
-    public double PositionSec => _startPos + _bytesRead / (48000.0 * 2 * 2);
+    /// <summary>Playback position = bytes actually played (downloaded minus what still sits in the buffer).</summary>
+    public double PositionSec
+    {
+        get
+        {
+            var played = Interlocked.Read(ref _bytesRead) - (_buffer?.BufferedBytes ?? 0);
+            return _startPos + Math.Max(0, played) / (48000.0 * 2 * 2);
+        }
+    }
 
     public void Start(string id, double posSec, float volume)
     {
