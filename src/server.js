@@ -1,6 +1,8 @@
 import express from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
+import ffmpegPath from 'ffmpeg-static';
 import { fileURLToPath } from 'node:url';
 import { saveConfig } from './config.js';
 import { resolveTrack } from './youtube.js';
@@ -189,6 +191,28 @@ export function startServer(bot, getConfig, setConfig) {
     res.sendFile(path.resolve(p.currentFile), {
       headers: { 'Content-Type': sniffAudioType(p.currentFile), 'Cache-Control': 'no-store' },
     });
+  });
+
+  // Raw PCM (s16le 48kHz stereo) of the current song, for the native app's audio player.
+  app.get('/api/audio/:id/pcm', (req, res) => {
+    const p = bot.player;
+    if (!p?.currentFile || p.current?.id !== req.params.id) {
+      return res.status(404).json({ error: 'Not the current song.' });
+    }
+    const pos = Math.max(0, Number(req.query.pos) || 0);
+    res.setHeader('Content-Type', 'application/octet-stream');
+    const args = ['-hide_banner', '-loglevel', 'error'];
+    if (pos > 0) args.push('-ss', pos.toFixed(2));
+    args.push('-i', p.currentFile, '-vn', '-f', 's16le', '-ar', '48000', '-ac', '2', 'pipe:1');
+    const ff = spawn(ffmpegPath, args, { stdio: ['ignore', 'pipe', 'ignore'] });
+    ff.stdout.pipe(res);
+    const kill = () => {
+      try {
+        ff.kill('SIGKILL');
+      } catch {}
+    };
+    res.on('close', kill);
+    ff.on('close', () => res.end());
   });
 
   app.post('/api/browser/ended', (req, res) => {

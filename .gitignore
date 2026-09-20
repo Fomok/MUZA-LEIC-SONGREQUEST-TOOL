@@ -1,6 +1,13 @@
 # dependencies & build output
 node_modules/
 dist/
+dist-native/
+stage/
+gui-out/
+nodetmp/
+node.zip
+native/**/bin/
+native/**/obj/
 
 # personal data — never commit these (config.json holds your tokens!)
 config.json
