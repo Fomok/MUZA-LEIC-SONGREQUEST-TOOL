@@ -81,55 +81,63 @@ document.body.style.zoom = scale;
 
 // The bar glides between server readings via CSS transitions — anchored to the
 // engine's clock every poll, so it cannot drift and never wobbles backwards.
+// Video-player-style sync: draw every rendered frame from a local wall-clock,
+// and correct the clock's SPEED (not its position) toward the server's readings.
+// Motion never stops and never jumps, except on a real seek or song change.
 const fillEl = document.getElementById('bar-fill');
-const LOOKAHEAD = 2.0; // seconds of cushion so late polls don't stall the glide
+fillEl.style.transition = 'none';
 
-function pct(pos) {
-  return Math.min(100, Math.max(0, (pos / durationSec) * 100)).toFixed(3) + '%';
+let anchorPos = 0; // song position at the anchor moment
+let anchorAt = 0; // wall-clock ms of the anchor
+let rate = 1.0; // local clock speed (0.92..1.08)
+let haveAnchor = false;
+
+function localPos() {
+  if (!haveAnchor) return 0;
+  if (isPaused) return anchorPos;
+  return anchorPos + ((Date.now() - anchorAt) / 1000) * rate;
 }
 
-/** The bar's real on-screen position right now (seconds), read from the renderer. */
-function currentBarPos() {
-  if (!durationSec) return 0;
-  const w = parseFloat(getComputedStyle(fillEl).width) || 0;
-  const total = fillEl.parentElement.clientWidth || 1;
-  return (w / total) * durationSec;
-}
-
-function snapBar(pos) {
-  fillEl.style.transition = 'none';
-  fillEl.style.width = pct(pos);
-  void fillEl.offsetWidth; // flush so the next transition starts from here
-}
-
-function glideBar(toPos, seconds) {
-  fillEl.style.transition = `width ${seconds}s linear`;
-  fillEl.style.width = pct(toPos);
+function reAnchor(pos) {
+  anchorPos = pos;
+  anchorAt = Date.now();
 }
 
 function updateBar(serverPos, songChanged) {
   if (!durationSec) {
-    snapBar(0);
+    haveAnchor = false;
     return;
   }
-  const cur = currentBarPos();
-  const pos = serverPos ?? cur;
-  if (songChanged || Math.abs(pos - cur) > 4) {
-    // new song or a real seek — jump once, then resume gliding
-    snapBar(pos);
-    glideBar(Math.min(pos + LOOKAHEAD, durationSec), LOOKAHEAD);
+  if (serverPos == null) return; // keep gliding on the local clock
+  if (songChanged || !haveAnchor || Math.abs(serverPos - localPos()) > 3) {
+    // new song or a real seek — the one place we jump
+    reAnchor(serverPos);
+    rate = 1.0;
+    haveAnchor = true;
     return;
   }
-  if (isPaused) {
-    glideBar(pos, 0.3);
-    return;
+  // measure drift and steer the clock speed toward the server, never the position
+  const err = localPos() - serverPos; // + means we run ahead
+  reAnchor(localPos());
+  rate = 1.0 - Math.max(-0.08, Math.min(0.08, err * 0.08));
+}
+
+// draw loop — tied to the renderer's frame rate, which OBS does not throttle
+(function draw() {
+  if (haveAnchor && durationSec) {
+    const pos = Math.min(localPos(), durationSec);
+    fillEl.style.width = Math.min(100, Math.max(0, (pos / durationSec) * 100)).toFixed(3) + '%';
+  } else {
+    fillEl.style.width = '0%';
   }
-  const target = Math.min(Math.max(pos + LOOKAHEAD, cur), durationSec);
-  const dist = target - cur;
-  if (dist <= 0.05) return;
-  // normally glide at exactly 1x; if a late poll left us behind, catch up gently at 1.35x
-  const speed = dist > LOOKAHEAD + 1 ? 1.35 : 1.0;
-  glideBar(target, dist / speed);
+  requestAnimationFrame(draw);
+})();
+
+// pause must freeze the local clock exactly where it is
+function notePause(paused) {
+  if (paused === isPaused) return;
+  reAnchor(localPos()); // freeze/unfreeze from the current spot
+  isPaused = paused;
 }
 
 async function tick() {
@@ -139,13 +147,14 @@ async function tick() {
     if (!s.current) {
       card.classList.remove('show');
       lastId = null;
-      snapBar(0);
+      haveAnchor = false;
       return;
     }
     document.getElementById('paused').textContent = s.paused ? '· PAUSED' : '';
-    isPaused = s.paused;
     durationSec = s.current.durationSec || null;
     const songChanged = s.current.id !== lastId;
+    if (songChanged) isPaused = s.paused;
+    else notePause(s.paused);
     updateBar(s.positionSec ?? (songChanged ? 0 : null), songChanged);
     if (s.current.id !== lastId) {
       lastId = s.current.id;
