@@ -25,7 +25,9 @@ public class EngineHost : IDisposable
             return true;
         }
 
-        var baseDir = AppContext.BaseDirectory;
+        // Prefer the real exe location (AppContext.BaseDirectory can point at a temp
+        // extraction folder in some publish modes).
+        var baseDir = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
         var engineDir = Path.Combine(baseDir, "engine");
         var nodeExe = Path.Combine(engineDir, "node.exe");
         var entry = Path.Combine(engineDir, "src", "index.js");

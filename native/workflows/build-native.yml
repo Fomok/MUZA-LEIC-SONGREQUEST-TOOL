@@ -35,7 +35,7 @@ jobs:
           dotnet-version: "8.0.x"
 
       - name: Build GUI
-        run: dotnet publish native/SongBot.Gui/SongBot.Gui.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o gui-out
+        run: dotnet publish native/SongBot.Gui/SongBot.Gui.csproj -c Release -r win-x64 --self-contained true -o gui-out
 
       - name: Stage GUI next to engine
         shell: pwsh
