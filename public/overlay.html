@@ -82,10 +82,18 @@ document.body.style.zoom = scale;
 // The bar glides between server readings via CSS transitions — anchored to the
 // engine's clock every poll, so it cannot drift and never wobbles backwards.
 const fillEl = document.getElementById('bar-fill');
-let lastTarget = 0;
+const LOOKAHEAD = 2.0; // seconds of cushion so late polls don't stall the glide
 
 function pct(pos) {
   return Math.min(100, Math.max(0, (pos / durationSec) * 100)).toFixed(3) + '%';
+}
+
+/** The bar's real on-screen position right now (seconds), read from the renderer. */
+function currentBarPos() {
+  if (!durationSec) return 0;
+  const w = parseFloat(getComputedStyle(fillEl).width) || 0;
+  const total = fillEl.parentElement.clientWidth || 1;
+  return (w / total) * durationSec;
 }
 
 function snapBar(pos) {
@@ -102,24 +110,26 @@ function glideBar(toPos, seconds) {
 function updateBar(serverPos, songChanged) {
   if (!durationSec) {
     snapBar(0);
-    lastTarget = 0;
     return;
   }
-  const pos = serverPos ?? lastTarget;
-  if (songChanged || Math.abs(pos - lastTarget) > 2.5) {
-    // new song or a real seek — jump, then resume gliding
+  const cur = currentBarPos();
+  const pos = serverPos ?? cur;
+  if (songChanged || Math.abs(pos - cur) > 4) {
+    // new song or a real seek — jump once, then resume gliding
     snapBar(pos);
-    lastTarget = pos;
+    glideBar(Math.min(pos + LOOKAHEAD, durationSec), LOOKAHEAD);
+    return;
   }
   if (isPaused) {
     glideBar(pos, 0.3);
-    lastTarget = pos;
     return;
   }
-  // aim one poll-interval ahead of the server's reading, never backwards
-  const target = Math.max(pos + 1.15, lastTarget);
-  glideBar(Math.min(target, durationSec), 1.15);
-  lastTarget = target;
+  const target = Math.min(Math.max(pos + LOOKAHEAD, cur), durationSec);
+  const dist = target - cur;
+  if (dist <= 0.05) return;
+  // normally glide at exactly 1x; if a late poll left us behind, catch up gently at 1.35x
+  const speed = dist > LOOKAHEAD + 1 ? 1.35 : 1.0;
+  glideBar(target, dist / speed);
 }
 
 async function tick() {
@@ -130,7 +140,6 @@ async function tick() {
       card.classList.remove('show');
       lastId = null;
       snapBar(0);
-      lastTarget = 0;
       return;
     }
     document.getElementById('paused').textContent = s.paused ? '· PAUSED' : '';
