@@ -351,18 +351,35 @@ public partial class MainWindow : Window
         TimeTotal.Text = FmtSec(_durSec);
     }
 
+    // The whole press (click, drag, scrub) is handled manually: the bar's visuals are
+    // mouse-transparent, we capture the mouse and map its X to a position ourselves.
     private void Prog_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        // freeze the ticker for the whole press (click or drag) so it can't move the bar under the mouse
+        if (_durSec <= 0) return;
         _progDragging = true;
+        ProgSlider.CaptureMouse();
+        UpdateProgFromMouse(e);
+    }
+
+    private void Prog_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_progDragging && e.LeftButton == MouseButtonState.Pressed) UpdateProgFromMouse(e);
+    }
+
+    private void UpdateProgFromMouse(MouseEventArgs e)
+    {
+        var frac = Math.Clamp(e.GetPosition(ProgSlider).X / Math.Max(1, ProgSlider.ActualWidth), 0, 1);
+        ProgSlider.Value = frac * ProgSlider.Maximum;
+        TimeCur.Text = FmtSec(ProgSlider.Value);
     }
 
     private async void Prog_MouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (!_progDragging) return;
+        ProgSlider.ReleaseMouseCapture();
         var target = ProgSlider.Value;
         _progDragging = false;
         if (_durSec <= 0) return;
-        if ((DateTime.Now - _lastSeekAt).TotalMilliseconds < 300) return; // debounce double events
         _lastSeekAt = DateTime.Now;
         await SeekTo(target);
     }
@@ -516,13 +533,6 @@ public partial class MainWindow : Window
         BotVolLabel.Text = (int)BotVolSlider.Value + "%";
     }
 
-    private async void BotVol_Done(object sender, EventArgs e)
-    {
-        if (_suppressEvents) return;
-        _lastVolSend = DateTime.Now;
-        await Try(() => _api!.Control("volume", (int)BotVolSlider.Value));
-    }
-
     // App volume (this PC's speakers, local only)
     private void AppVol_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
@@ -532,10 +542,44 @@ public partial class MainWindow : Window
         _mirror?.SetVolume((float)(_gui.AppVolume / 100.0));
     }
 
-    private void AppVol_Done(object sender, EventArgs e)
+    // Manual mouse handling for the vertical volume bars (click, drag, scrub).
+    private bool _volDragging;
+
+    private void VolV_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        if (_suppressEvents) return;
-        _gui.Save();
+        var s = (System.Windows.Controls.Slider)sender;
+        _volDragging = true;
+        s.CaptureMouse();
+        UpdateVolFromMouse(s, e);
+    }
+
+    private void VolV_MouseMove(object sender, MouseEventArgs e)
+    {
+        if (_volDragging && e.LeftButton == MouseButtonState.Pressed)
+            UpdateVolFromMouse((System.Windows.Controls.Slider)sender, e);
+    }
+
+    private async void VolV_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (!_volDragging) return;
+        var s = (System.Windows.Controls.Slider)sender;
+        s.ReleaseMouseCapture();
+        _volDragging = false;
+        if (s == BotVolSlider)
+        {
+            _lastVolSend = DateTime.Now;
+            await Try(() => _api!.Control("volume", (int)BotVolSlider.Value));
+        }
+        else
+        {
+            _gui.Save();
+        }
+    }
+
+    private static void UpdateVolFromMouse(System.Windows.Controls.Slider s, MouseEventArgs e)
+    {
+        var frac = Math.Clamp(1 - e.GetPosition(s).Y / Math.Max(1, s.ActualHeight), 0, 1);
+        s.Value = s.Minimum + frac * (s.Maximum - s.Minimum);
     }
 
     private async void Add_Click(object sender, RoutedEventArgs e) => await AddSong();

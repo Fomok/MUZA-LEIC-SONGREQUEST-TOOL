@@ -81,16 +81,23 @@ if (params.get('clean') === '1') {
 const scale = Math.max(1, Math.min(4, parseFloat(params.get('scale')) || 2));
 document.body.style.zoom = scale;
 
-// advance the bar smoothly between polls
+// advance the bar smoothly between polls (monotonic — never draws backwards except on seek)
+let lastDrawn = 0;
+function localPos() {
+  return isPaused ? basePos : basePos + (Date.now() - baseAt) / 1000;
+}
 setInterval(() => {
   const fill = document.getElementById('bar-fill');
   if (basePos == null || !durationSec) {
     fill.style.width = '0%';
+    lastDrawn = 0;
     return;
   }
-  const pos = isPaused ? basePos : basePos + (Date.now() - baseAt) / 1000;
+  let pos = Math.min(localPos(), durationSec);
+  if (pos < lastDrawn && lastDrawn - pos < 2) pos = lastDrawn; // swallow tiny backward corrections
+  lastDrawn = pos;
   fill.style.width = Math.min(100, (pos / durationSec) * 100).toFixed(2) + '%';
-}, 250);
+}, 200);
 
 async function tick() {
   try {
@@ -105,11 +112,23 @@ async function tick() {
     document.getElementById('paused').textContent = s.paused ? '· PAUSED' : '';
     isPaused = s.paused;
     durationSec = s.current.durationSec || null;
-    if (s.positionSec != null) {
-      basePos = s.positionSec;
+    if (s.current.id !== lastId) {
+      basePos = s.positionSec ?? 0; // new song
       baseAt = Date.now();
-    } else if (s.current.id !== lastId) {
-      basePos = 0; // new song, position unknown yet — start from the beginning
+      lastDrawn = 0;
+    } else if (s.positionSec != null && basePos != null) {
+      const diff = s.positionSec - localPos();
+      if (Math.abs(diff) > 2) {
+        // real jump (seek) — hard reset
+        basePos = s.positionSec;
+        baseAt = Date.now();
+        lastDrawn = 0;
+      } else {
+        // tiny drift — correct gently so the bar never stutters
+        basePos += diff * 0.2;
+      }
+    } else if (s.positionSec != null) {
+      basePos = s.positionSec;
       baseAt = Date.now();
     }
     if (s.current.id !== lastId) {
@@ -132,7 +151,7 @@ async function tick() {
   }
 }
 tick();
-setInterval(tick, 2000);
+setInterval(tick, 1000);
 </script>
 </body>
 </html>

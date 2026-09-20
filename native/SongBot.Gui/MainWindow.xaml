@@ -37,7 +37,8 @@
                                 <Slider x:Name="AppVolSlider" Style="{StaticResource VolSliderV}" Height="170"
                                         Minimum="0" Maximum="100" Value="100"
                                         ToolTip="Loudness on this PC (In App Player and the mirror)"
-                                        ValueChanged="AppVol_Changed" Thumb.DragCompleted="AppVol_Done" PreviewMouseUp="AppVol_Done"/>
+                                        ValueChanged="AppVol_Changed" PreviewMouseDown="VolV_MouseDown"
+                                        PreviewMouseMove="VolV_MouseMove" PreviewMouseUp="VolV_MouseUp"/>
                                 <TextBlock Text="🖥" FontSize="15" HorizontalAlignment="Center" Margin="0,8,0,0"/>
                                 <TextBlock Text="App" FontSize="11" Foreground="{StaticResource Muted}" HorizontalAlignment="Center"/>
                                 <TextBlock x:Name="AppVolLabel" Text="100%" FontSize="11.5" HorizontalAlignment="Center"/>
@@ -46,7 +47,8 @@
                                 <Slider x:Name="BotVolSlider" Style="{StaticResource VolSliderV}" Height="170"
                                         Minimum="1" Maximum="150" Value="60"
                                         ToolTip="Loudness in the Discord voice channel"
-                                        ValueChanged="BotVol_Changed" Thumb.DragCompleted="BotVol_Done" PreviewMouseUp="BotVol_Done"/>
+                                        ValueChanged="BotVol_Changed" PreviewMouseDown="VolV_MouseDown"
+                                        PreviewMouseMove="VolV_MouseMove" PreviewMouseUp="VolV_MouseUp"/>
                                 <TextBlock Text="🎧" FontSize="15" HorizontalAlignment="Center" Margin="0,8,0,0"/>
                                 <TextBlock Text="Bot" FontSize="11" Foreground="{StaticResource Muted}" HorizontalAlignment="Center"/>
                                 <TextBlock x:Name="BotVolLabel" Text="–%" FontSize="11.5" HorizontalAlignment="Center"/>
@@ -156,9 +158,9 @@
                                 <TextBlock x:Name="TimeCur" Grid.Column="0" Text="0:00" FontSize="11.5"
                                            Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
                                 <Slider x:Name="ProgSlider" Grid.Column="1" Minimum="0" Maximum="100" Margin="10,0"
-                                        Style="{StaticResource SeekSlider}"
-                                        VerticalAlignment="Center" IsMoveToPointEnabled="True"
-                                        PreviewMouseDown="Prog_MouseDown" PreviewMouseUp="Prog_MouseUp"/>
+                                        Style="{StaticResource SeekSlider}" VerticalAlignment="Center"
+                                        PreviewMouseDown="Prog_MouseDown" PreviewMouseMove="Prog_MouseMove"
+                                        PreviewMouseUp="Prog_MouseUp"/>
                                 <TextBlock x:Name="TimeTotal" Grid.Column="2" Text="0:00" FontSize="11.5"
                                            Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
                                 <CheckBox x:Name="SrEnabled" Grid.Column="3" Content="requests on" Margin="14,0,0,0" VerticalAlignment="Center"

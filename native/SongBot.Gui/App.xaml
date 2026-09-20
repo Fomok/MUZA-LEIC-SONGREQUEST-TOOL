@@ -108,7 +108,7 @@
                             <Grid VerticalAlignment="Center" Background="Transparent" MinHeight="20">
                                 <Track x:Name="PART_Track">
                                     <Track.DecreaseRepeatButton>
-                                        <RepeatButton IsTabStop="False" Command="Slider.DecreaseLarge" Focusable="False">
+                                        <RepeatButton IsTabStop="False" IsHitTestVisible="False" Focusable="False">
                                             <RepeatButton.Template>
                                                 <ControlTemplate TargetType="RepeatButton">
                                                     <Grid Background="Transparent">
@@ -126,7 +126,7 @@
                                         </RepeatButton>
                                     </Track.DecreaseRepeatButton>
                                     <Track.IncreaseRepeatButton>
-                                        <RepeatButton IsTabStop="False" Command="Slider.IncreaseLarge" Focusable="False">
+                                        <RepeatButton IsTabStop="False" IsHitTestVisible="False" Focusable="False">
                                             <RepeatButton.Template>
                                                 <ControlTemplate TargetType="RepeatButton">
                                                     <Grid Background="Transparent">
@@ -137,7 +137,7 @@
                                         </RepeatButton>
                                     </Track.IncreaseRepeatButton>
                                     <Track.Thumb>
-                                        <Thumb Width="14" Height="14" Focusable="False">
+                                        <Thumb Width="14" Height="14" IsHitTestVisible="False" Focusable="False">
                                             <Thumb.Template>
                                                 <ControlTemplate TargetType="Thumb">
                                                     <Ellipse Fill="#9D86FF" Stroke="White" StrokeThickness="1.5"/>
@@ -162,7 +162,7 @@
                             <Grid HorizontalAlignment="Center" Background="Transparent" MinWidth="22">
                                 <Track x:Name="PART_Track">
                                     <Track.DecreaseRepeatButton>
-                                        <RepeatButton IsTabStop="False" Command="Slider.DecreaseLarge" Focusable="False">
+                                        <RepeatButton IsTabStop="False" IsHitTestVisible="False" Focusable="False">
                                             <RepeatButton.Template>
                                                 <ControlTemplate TargetType="RepeatButton">
                                                     <Grid Background="Transparent">
@@ -180,7 +180,7 @@
                                         </RepeatButton>
                                     </Track.DecreaseRepeatButton>
                                     <Track.IncreaseRepeatButton>
-                                        <RepeatButton IsTabStop="False" Command="Slider.IncreaseLarge" Focusable="False">
+                                        <RepeatButton IsTabStop="False" IsHitTestVisible="False" Focusable="False">
                                             <RepeatButton.Template>
                                                 <ControlTemplate TargetType="RepeatButton">
                                                     <Grid Background="Transparent">
@@ -191,7 +191,7 @@
                                         </RepeatButton>
                                     </Track.IncreaseRepeatButton>
                                     <Track.Thumb>
-                                        <Thumb Width="14" Height="14" Focusable="False">
+                                        <Thumb Width="14" Height="14" IsHitTestVisible="False" Focusable="False">
                                             <Thumb.Template>
                                                 <ControlTemplate TargetType="Thumb">
                                                     <Ellipse Fill="#9D86FF" Stroke="White" StrokeThickness="1.5"/>
