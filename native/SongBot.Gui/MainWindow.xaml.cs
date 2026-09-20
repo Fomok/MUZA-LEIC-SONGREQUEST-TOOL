@@ -18,7 +18,7 @@ public partial class MainWindow : Window
     private System.Windows.Forms.NotifyIcon? _tray;
     private bool _quitting;
     private bool _settingsLoaded;
-    private bool _suppressEvents;
+    private bool _suppressEvents = true; // true until OnLoaded — XAML fires value-changed events during construction
     private string _mode = "discord";
     private string? _lastQueueJson, _lastPlJson, _lastBlJson, _lastNpId;
     private DateTime _lastVolSend = DateTime.MinValue;
@@ -503,7 +503,7 @@ public partial class MainWindow : Window
     // Discord bot volume (engine-side)
     private void BotVol_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_suppressEvents) return;
+        if (_suppressEvents || BotVolLabel == null) return;
         BotVolLabel.Text = (int)BotVolSlider.Value + "%";
     }
 
@@ -517,7 +517,7 @@ public partial class MainWindow : Window
     // App volume (this PC's speakers, local only)
     private void AppVol_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_suppressEvents) return;
+        if (_suppressEvents || AppVolLabel == null) return;
         _gui.AppVolume = (int)AppVolSlider.Value;
         AppVolLabel.Text = _gui.AppVolume + "%";
         _mirror?.SetVolume((float)(_gui.AppVolume / 100.0));
