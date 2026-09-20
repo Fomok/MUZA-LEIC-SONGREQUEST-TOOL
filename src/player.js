@@ -37,6 +37,8 @@ export class MusicPlayer {
     this.enabled = true;
     this.destroyed = false;
     this._lastFallbackId = null;
+    this.history = []; // recently finished/skipped tracks, newest last (max 10)
+    this._noHistoryOnce = false;
     this.onTrackStart = null; // callback(track)
     this.onChange = null; // callback() — queue/current changed (used for persistence)
 
@@ -47,8 +49,12 @@ export class MusicPlayer {
     this.player.on(AudioPlayerStatus.Idle, () => {
       // Ignore stale events from a stream we killed while the next song downloads.
       if (this._downloading) return;
+      if (this._seeking) return; // resource swap during a seek, not a real song end
+      const ended = this.current;
       this.current = null;
       this.killFfmpeg();
+      if (ended && !this._noHistoryOnce) this.pushHistory(ended);
+      this._noHistoryOnce = false;
       this.onChange?.();
       this.playNext();
     });
@@ -221,10 +227,10 @@ export class MusicPlayer {
     }
   }
 
-  /** Start (or restart at an offset, for volume changes) playback of a local file. */
+  /** Start (or restart at an offset, for volume changes/seeking) playback of a local file. */
   _startPlayback(file, seekSec = 0) {
     let resource;
-    if (HAS_NATIVE_OPUS) {
+    if (HAS_NATIVE_OPUS && seekSec === 0) {
       resource = createAudioResource(file, {
         inputType: StreamType.Arbitrary,
         inlineVolume: true,
@@ -271,12 +277,71 @@ export class MusicPlayer {
       this._playToken++;
       this._downloading = false;
       this.current = null;
+      if (skipped && !this._noHistoryOnce) this.pushHistory(skipped);
+      this._noHistoryOnce = false;
       this.onChange?.();
       this.playNext();
     } else {
       this.player.stop(true); // Idle handler advances the queue
     }
     return skipped;
+  }
+
+  pushHistory(t) {
+    if (!t?.id) return;
+    this.history.push({
+      id: t.id,
+      url: t.url,
+      title: t.title,
+      durationSec: t.durationSec,
+      requestedBy: t.requestedBy,
+      source: t.source,
+    });
+    if (this.history.length > 10) this.history.shift();
+  }
+
+  /** Replay the most recently finished/skipped song; the interrupted one resumes after it. */
+  previous() {
+    const prev = this.history.pop();
+    if (!prev) return null;
+    if (this.current) {
+      this.queue.unshift({ ...this.current });
+      this.queue.unshift({ ...prev });
+      this._noHistoryOnce = true; // the interrupted song goes back to the queue, not history
+      this.skip();
+    } else {
+      this.queue.unshift({ ...prev });
+      this.onChange?.();
+      this.playNext();
+    }
+    return prev;
+  }
+
+  /** Play a specific song immediately (from the auto playlist's "play now"). */
+  playNow(item, by = 'Streamer') {
+    const track = { ...item, requestedBy: by, source: 'request' };
+    this.queue.unshift(track);
+    this.onChange?.();
+    if (this.current) this.skip();
+    else this.playNext();
+    return track;
+  }
+
+  /** Jump to a position (seconds) in the current song. */
+  seek(sec) {
+    if (!this.current || !this._currentFile) return false;
+    const max = this.current.durationSec != null ? Math.max(0, this.current.durationSec - 2) : sec;
+    const pos = Math.max(0, Math.min(Number(sec) || 0, max));
+    try {
+      this._seeking = true;
+      this._startPlayback(this._currentFile, pos);
+      return true;
+    } catch (err) {
+      console.error('[player] seek failed:', err.message);
+      return false;
+    } finally {
+      setTimeout(() => (this._seeking = false), 500);
+    }
   }
 
   pause() {
@@ -300,8 +365,8 @@ export class MusicPlayer {
 
   setVolume(percent) {
     this.volume = Math.min(200, Math.max(1, percent)) / 100;
-    if (HAS_NATIVE_OPUS) {
-      this.resource?.volume?.setVolume(this.volume);
+    if (this.resource?.volume) {
+      this.resource.volume.setVolume(this.volume);
     } else if (this.current && this._currentFile && !this.paused) {
       // Restart the current song at its position so the new volume applies now.
       const elapsed = (this._seekOffset || 0) + (this.resource?.playbackDuration || 0) / 1000;
@@ -353,6 +418,7 @@ export class MusicPlayer {
       enabled: this.enabled,
       paused: this.paused,
       interruptFallback: this.interruptFallback,
+      historyCount: this.history.length,
       positionSec: this.current
         ? Math.round(((this._seekOffset || 0) + (this.resource?.playbackDuration || 0) / 1000) * 10) / 10
         : null,

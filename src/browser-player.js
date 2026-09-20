@@ -22,6 +22,8 @@ export class BrowserPlayer {
     this._lastFallbackId = null;
     this._playToken = 0;
     this._downloading = false;
+    this.history = []; // recently finished/skipped tracks, newest last (max 10)
+    this._noHistoryOnce = false;
     this.onTrackStart = null;
     this.onChange = null;
   }
@@ -106,12 +108,61 @@ export class BrowserPlayer {
   /** Called by the dashboard when its <audio> element finished the song. */
   ended(id) {
     if (this.current && this.current.id === id) {
+      if (!this._noHistoryOnce) this.pushHistory(this.current);
+      this._noHistoryOnce = false;
       this.current = null;
       this.currentFile = null;
       this._positionSec = null;
       this.onChange?.();
       this.playNext();
     }
+  }
+
+  pushHistory(t) {
+    if (!t?.id) return;
+    this.history.push({
+      id: t.id,
+      url: t.url,
+      title: t.title,
+      durationSec: t.durationSec,
+      requestedBy: t.requestedBy,
+      source: t.source,
+    });
+    if (this.history.length > 10) this.history.shift();
+  }
+
+  /** Replay the most recently finished/skipped song; the interrupted one resumes after it. */
+  previous() {
+    const prev = this.history.pop();
+    if (!prev) return null;
+    if (this.current) {
+      this.queue.unshift({ ...this.current });
+      this.queue.unshift({ ...prev });
+      this._noHistoryOnce = true;
+      this.skip();
+    } else {
+      this.queue.unshift({ ...prev });
+      this.onChange?.();
+      this.playNext();
+    }
+    return prev;
+  }
+
+  /** Play a specific song immediately (from the auto playlist's "play now"). */
+  playNow(item, by = 'Streamer') {
+    const track = { ...item, requestedBy: by, source: 'request' };
+    this.queue.unshift(track);
+    this.onChange?.();
+    if (this.current) this.skip();
+    else this.playNext();
+    return track;
+  }
+
+  /** The app window owns actual playback; just record the seek position. */
+  seek(sec) {
+    if (!this.current) return false;
+    this._positionSec = Math.max(0, Number(sec) || 0);
+    return true;
   }
 
   /** Called by the dashboard to report the audio element's playback position. */
@@ -125,6 +176,8 @@ export class BrowserPlayer {
     const skipped = this.current;
     this._playToken++;
     this._downloading = false;
+    if (skipped && !this._noHistoryOnce) this.pushHistory(skipped);
+    this._noHistoryOnce = false;
     this.current = null;
     this.currentFile = null;
     this.onChange?.();
@@ -202,6 +255,7 @@ export class BrowserPlayer {
       enabled: this.enabled,
       paused: this._paused,
       interruptFallback: this.interruptFallback,
+      historyCount: this.history.length,
       positionSec: this.current ? this._positionSec : null, // reported by the app window
     };
   }

@@ -24,6 +24,15 @@ public partial class MainWindow : Window
     private DateTime _lastVolSend = DateTime.MinValue;
     private DateTime _lastPosReport = DateTime.MinValue;
 
+    // progress bar state
+    private readonly DispatcherTimer _progTimer = new() { Interval = TimeSpan.FromMilliseconds(400) };
+    private bool _progDragging;
+    private double _basePos;
+    private DateTime _baseAt = DateTime.Now;
+    private double _durSec;
+    private bool _isPaused;
+    private GuiSettings _gui = GuiSettings.Load();
+
     public MainWindow()
     {
         InitializeComponent();
@@ -34,6 +43,15 @@ public partial class MainWindow : Window
 
     private async void OnLoaded(object? sender, RoutedEventArgs e)
     {
+        _suppressEvents = true;
+        AppVolSlider.Value = _gui.AppVolume;
+        AppVolLabel.Text = _gui.AppVolume + "%";
+        MirrorCheck.IsChecked = _gui.Mirror;
+        _suppressEvents = false;
+
+        _progTimer.Tick += (_, _) => TickProgress();
+        _progTimer.Start();
+
         StBot.Text = "Starting engine…";
         var ok = await _engine.EnsureRunningAsync(s => Dispatcher.Invoke(() => StBot.Text = s));
         _api = new Api(_engine.BaseUrl);
@@ -175,14 +193,35 @@ public partial class MainWindow : Window
                 NpThumb.Source = npId == null ? null : Bmp($"https://i.ytimg.com/vi/{npId}/mqdefault.jpg");
             }
             var paused = p["paused"]?.GetValue<bool>() ?? false;
+            _isPaused = paused;
             BtnPause.Content = paused ? "▶ Resume" : "⏸ Pause";
+            BtnPrev.IsEnabled = (p["historyCount"]?.GetValue<int>() ?? 0) > 0;
             var vol = p["volume"]?.GetValue<int?>() ?? cfg["defaultVolume"]?.GetValue<int>() ?? 60;
-            if ((DateTime.Now - _lastVolSend).TotalSeconds > 3 && !VolSlider.IsMouseCaptureWithin)
+            if ((DateTime.Now - _lastVolSend).TotalSeconds > 3 && !BotVolSlider.IsMouseCaptureWithin)
             {
-                VolSlider.Value = vol;
-                VolLabel.Text = vol.ToString();
+                BotVolSlider.Value = vol;
+                BotVolLabel.Text = vol + "%";
             }
             SrEnabled.IsChecked = p["enabled"]?.GetValue<bool>() ?? true;
+
+            // progress bar baseline (interpolated by _progTimer between polls)
+            _durSec = cur?["durationSec"]?.GetValue<double?>() ?? 0;
+            var posFromState = p["positionSec"]?.GetValue<double?>();
+            if (cur == null)
+            {
+                _basePos = 0;
+                _durSec = 0;
+            }
+            else if (_mode == "browser" && _mirror?.CurrentId == npId)
+            {
+                _basePos = _mirror.PositionSec;
+                _baseAt = DateTime.Now;
+            }
+            else if (posFromState != null)
+            {
+                _basePos = posFromState.Value;
+                _baseAt = DateTime.Now;
+            }
             InterruptCheck.IsChecked = s["interruptFallback"]?.GetValue<bool>() ?? true;
 
             // lists
@@ -284,6 +323,68 @@ public partial class MainWindow : Window
         CfgAudioBitrate.Text = (cfg["audioBitrate"]?.GetValue<double>() ?? 128).ToString();
     }
 
+    // ============ progress bar ============
+
+    private void TickProgress()
+    {
+        if (_progDragging) return;
+        if (_durSec <= 0)
+        {
+            ProgSlider.Value = 0;
+            TimeCur.Text = "0:00";
+            TimeTotal.Text = "0:00";
+            return;
+        }
+        var pos = _mode == "browser" && _mirror?.CurrentId != null
+            ? _mirror.PositionSec
+            : _isPaused ? _basePos : _basePos + (DateTime.Now - _baseAt).TotalSeconds;
+        pos = Math.Clamp(pos, 0, _durSec);
+        ProgSlider.Maximum = _durSec;
+        ProgSlider.Value = pos;
+        TimeCur.Text = FmtSec(pos);
+        TimeTotal.Text = FmtSec(_durSec);
+    }
+
+    private void Prog_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e) => _progDragging = true;
+
+    private async void Prog_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    {
+        _progDragging = false;
+        await SeekTo(ProgSlider.Value);
+    }
+
+    private async void Prog_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        if (_durSec <= 0) return;
+        await SeekTo(ProgSlider.Value);
+    }
+
+    private async Task SeekTo(double sec)
+    {
+        if (_durSec <= 0 || _lastNpId == null) return;
+        sec = Math.Clamp(sec, 0, Math.Max(0, _durSec - 2));
+        _basePos = sec;
+        _baseAt = DateTime.Now;
+        try
+        {
+            if (_mode == "browser")
+            {
+                _mirror?.Start(_lastNpId, sec, (float)(_gui.AppVolume / 100.0));
+                await _api!.Post("/api/browser/position", new { id = _lastNpId, positionSec = sec });
+            }
+            else
+            {
+                await _api!.Control("seek", sec);
+            }
+        }
+        catch (ApiException ex)
+        {
+            ShowToast(ex.Message, true);
+        }
+    }
+
+    private static string FmtSec(double s) => $"{(int)s / 60}:{(int)s % 60:D2}";
+
     // ============ native audio (In App Player + mirror) ============
 
     private void SyncAudio(JsonNode p, JsonNode? cur, bool paused, int vol)
@@ -297,7 +398,7 @@ public partial class MainWindow : Window
             return;
         }
         var posSec = p["positionSec"]?.GetValue<double?>();
-        var volF = Math.Min(1f, vol / 100f);
+        var volF = (float)(_gui.AppVolume / 100.0);
 
         if (_mirror.CurrentId != id)
         {
@@ -367,8 +468,13 @@ public partial class MainWindow : Window
     private void Mirror_Changed(object sender, RoutedEventArgs e)
     {
         if (_suppressEvents) return;
+        _gui.Mirror = MirrorCheck.IsChecked == true;
+        _gui.Save();
         _ = Refresh();
     }
+
+    private async void Prev_Click(object sender, RoutedEventArgs e) =>
+        await Try(() => _api!.Control("previous"), "Playing the previous song.");
 
     private async void Pause_Click(object sender, RoutedEventArgs e)
     {
@@ -394,20 +500,33 @@ public partial class MainWindow : Window
         await Try(() => _api!.Control("interruptFallback", InterruptCheck.IsChecked == true));
     }
 
-    private void Vol_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    // Discord bot volume (engine-side)
+    private void BotVol_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_suppressEvents) return;
-        VolLabel.Text = ((int)VolSlider.Value).ToString();
+        BotVolLabel.Text = (int)BotVolSlider.Value + "%";
     }
 
-    private async void Vol_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e) => await SendVolume();
-    private async void Vol_MouseUp(object sender, MouseButtonEventArgs e) => await SendVolume();
-
-    private async Task SendVolume()
+    private async void BotVol_Done(object sender, EventArgs e)
     {
         if (_suppressEvents) return;
         _lastVolSend = DateTime.Now;
-        await Try(() => _api!.Control("volume", (int)VolSlider.Value));
+        await Try(() => _api!.Control("volume", (int)BotVolSlider.Value));
+    }
+
+    // App volume (this PC's speakers, local only)
+    private void AppVol_Changed(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (_suppressEvents) return;
+        _gui.AppVolume = (int)AppVolSlider.Value;
+        AppVolLabel.Text = _gui.AppVolume + "%";
+        _mirror?.SetVolume((float)(_gui.AppVolume / 100.0));
+    }
+
+    private void AppVol_Done(object sender, EventArgs e)
+    {
+        if (_suppressEvents) return;
+        _gui.Save();
     }
 
     private async void Add_Click(object sender, RoutedEventArgs e) => await AddSong();
@@ -470,8 +589,8 @@ public partial class MainWindow : Window
         await Try(() => _api!.Post("/api/blacklist/add", new { queueIndex = TagIndex(sender) }), "Blacklisted.");
     private async void QueueRemove_Click(object sender, RoutedEventArgs e) =>
         await Try(() => _api!.Control("remove", TagIndex(sender)));
-    private async void PlBlacklist_Click(object sender, RoutedEventArgs e) =>
-        await Try(() => _api!.Post("/api/blacklist/add", new { playlistIndex = TagIndex(sender) }), "Blacklisted.");
+    private async void PlPlayNow_Click(object sender, RoutedEventArgs e) =>
+        await Try(() => _api!.Post("/api/playlist/play", new { index = TagIndex(sender) }), "Playing now.");
     private async void PlRemove_Click(object sender, RoutedEventArgs e) =>
         await Try(() => _api!.Post("/api/playlist/remove", new { index = TagIndex(sender) }));
     private async void BlRemove_Click(object sender, RoutedEventArgs e) =>
@@ -592,5 +711,40 @@ public partial class MainWindow : Window
         public string Title { get; set; } = "";
         public string Sub { get; set; } = "";
         public string? ThumbUrl { get; set; }
+    }
+}
+
+/// <summary>Local GUI preferences (app volume, mirror) — %APPDATA%\twitch-song-bot\gui-settings.json.</summary>
+public class GuiSettings
+{
+    public int AppVolume { get; set; } = 100;
+    public bool Mirror { get; set; }
+
+    private static string PathFor() => System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "twitch-song-bot", "gui-settings.json");
+
+    public static GuiSettings Load()
+    {
+        try
+        {
+            var p = PathFor();
+            if (System.IO.File.Exists(p))
+            {
+                return System.Text.Json.JsonSerializer.Deserialize<GuiSettings>(System.IO.File.ReadAllText(p)) ?? new GuiSettings();
+            }
+        }
+        catch { }
+        return new GuiSettings();
+    }
+
+    public void Save()
+    {
+        try
+        {
+            var p = PathFor();
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(p)!);
+            System.IO.File.WriteAllText(p, System.Text.Json.JsonSerializer.Serialize(this));
+        }
+        catch { }
     }
 }

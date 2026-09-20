@@ -91,6 +91,12 @@ export function startServer(bot, getConfig, setConfig) {
       case 'remove':
         p.removeAt(Number(value));
         break;
+      case 'seek':
+        p.seek?.(Number(value));
+        break;
+      case 'previous':
+        p.previous?.();
+        break;
       default:
         return res.status(400).json({ error: 'Unknown action' });
     }
@@ -132,6 +138,16 @@ export function startServer(bot, getConfig, setConfig) {
 
   app.post('/api/playlist/remove', (req, res) => {
     playlist.removeAt(Number(req.body?.index));
+    res.json(state());
+  });
+
+  app.post('/api/playlist/play', (req, res) => {
+    const p = bot.player;
+    if (!p) return res.status(400).json({ error: 'Bot is not running.' });
+    const item = playlist.items[Number(req.body?.index)];
+    if (!item) return res.status(400).json({ error: 'Song not found in playlist.' });
+    const track = p.playNow(item, 'Streamer');
+    console.log(`[bot] play now: ${track.title}`);
     res.json(state());
   });
 

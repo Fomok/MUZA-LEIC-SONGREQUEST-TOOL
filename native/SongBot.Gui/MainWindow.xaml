@@ -107,7 +107,8 @@
                                     <TextBlock x:Name="NpBy" Foreground="{StaticResource Muted}" FontSize="12"/>
                                 </StackPanel>
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                    <Button x:Name="BtnPause" Content="⏸ Pause" Click="Pause_Click"/>
+                                    <Button x:Name="BtnPrev" Content="⏮" ToolTip="Play the previous song again" Click="Prev_Click"/>
+                                    <Button x:Name="BtnPause" Content="⏸ Pause" Margin="6,0,0,0" Click="Pause_Click"/>
                                     <Button Content="⏭ Skip" Margin="6,0,0,0" Click="Skip_Click"/>
                                     <Button Content="⛔" Style="{StaticResource Danger}" Margin="6,0,0,0"
                                             ToolTip="Blacklist this song and skip it" Click="BlacklistCurrent_Click"/>
@@ -118,15 +119,52 @@
                                     <ColumnDefinition Width="Auto"/>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
+                                    <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" FontSize="12.5" Foreground="{StaticResource Muted}" VerticalAlignment="Center">
-                                    <Run Text="🔊 "/><Run x:Name="VolLabel" Text="–"/><Run Text="%"/>
-                                </TextBlock>
-                                <Slider x:Name="VolSlider" Grid.Column="1" Minimum="1" Maximum="150" Margin="10,0"
-                                        VerticalAlignment="Center" ValueChanged="Vol_Changed"
-                                        Thumb.DragCompleted="Vol_DragCompleted" PreviewMouseUp="Vol_MouseUp"/>
-                                <CheckBox x:Name="SrEnabled" Grid.Column="2" Content="requests on" VerticalAlignment="Center"
+                                <TextBlock x:Name="TimeCur" Grid.Column="0" Text="0:00" FontSize="11.5"
+                                           Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                                <Slider x:Name="ProgSlider" Grid.Column="1" Minimum="0" Maximum="100" Margin="10,0"
+                                        VerticalAlignment="Center" IsMoveToPointEnabled="True"
+                                        Thumb.DragStarted="Prog_DragStarted" Thumb.DragCompleted="Prog_DragCompleted"
+                                        PreviewMouseUp="Prog_MouseUp"/>
+                                <TextBlock x:Name="TimeTotal" Grid.Column="2" Text="0:00" FontSize="11.5"
+                                           Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                                <CheckBox x:Name="SrEnabled" Grid.Column="3" Content="requests on" Margin="14,0,0,0" VerticalAlignment="Center"
                                           Checked="SrEnabled_Changed" Unchecked="SrEnabled_Changed"/>
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- VOLUMES -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="40"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="🖥 App volume" FontSize="12.5" VerticalAlignment="Center"
+                                           ToolTip="Loudness on this PC (In App Player and the mirror)"/>
+                                <Slider x:Name="AppVolSlider" Grid.Column="1" Minimum="0" Maximum="100" Value="100" Margin="8,0"
+                                        VerticalAlignment="Center" ValueChanged="AppVol_Changed"
+                                        Thumb.DragCompleted="AppVol_Done" PreviewMouseUp="AppVol_Done"/>
+                                <TextBlock x:Name="AppVolLabel" Grid.Column="2" Text="100%" FontSize="11.5"
+                                           Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+                            </Grid>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="150"/>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="40"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="🎧 Discord bot volume" FontSize="12.5" VerticalAlignment="Center"
+                                           ToolTip="Loudness in the Discord voice channel"/>
+                                <Slider x:Name="BotVolSlider" Grid.Column="1" Minimum="1" Maximum="150" Value="60" Margin="8,0"
+                                        VerticalAlignment="Center" ValueChanged="BotVol_Changed"
+                                        Thumb.DragCompleted="BotVol_Done" PreviewMouseUp="BotVol_Done"/>
+                                <TextBlock x:Name="BotVolLabel" Grid.Column="2" Text="–%" FontSize="11.5"
+                                           Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
                             </Grid>
                         </StackPanel>
                     </Border>
@@ -326,10 +364,10 @@
                                             <TextBlock Grid.Column="2" Text="{Binding Title}" FontSize="12"
                                                        VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                             <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Button Content="⛔" Style="{StaticResource Danger}" FontSize="10" Padding="5,1"
-                                                        Tag="{Binding Index}" ToolTip="Blacklist" Click="PlBlacklist_Click"/>
+                                                <Button Content="▶" Style="{StaticResource Primary}" FontSize="10" Padding="6,1"
+                                                        Tag="{Binding Index}" ToolTip="Play this song now" Click="PlPlayNow_Click"/>
                                                 <Button Content="✕" Style="{StaticResource Danger}" FontSize="10" Padding="5,1"
-                                                        Margin="3,0,0,0" Tag="{Binding Index}" ToolTip="Remove" Click="PlRemove_Click"/>
+                                                        Margin="3,0,0,0" Tag="{Binding Index}" ToolTip="Remove from playlist" Click="PlRemove_Click"/>
                                             </StackPanel>
                                         </Grid>
                                     </DataTemplate>
